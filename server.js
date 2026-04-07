@@ -174,6 +174,109 @@ app.post('/api/analyze', async (req, res) => {
   }
 })
 
+// AI 智能解析飲食
+app.post('/api/parse-diet', async (req, res) => {
+  const { text } = req.body
+  if (!text) return res.status(400).json({ error: '請提供飲食描述' })
+
+  const prompt = `你是一位專業營養師。請解析以下飲食描述，回傳結構化 JSON 資料。
+
+飲食描述：
+"""
+${text}
+"""
+
+請回傳以下 JSON 格式（只回傳 JSON，不要加任何說明或 markdown）：
+{
+  "meals": [
+    {
+      "type": "breakfast 或 lunch 或 dinner 或 snack",
+      "foods": [
+        {
+          "name": "食物名稱（繁體中文）",
+          "calories": 預估熱量整數,
+          "protein": 蛋白質公克整數,
+          "carbs": 碳水公克整數,
+          "fat": 脂肪公克整數,
+          "amount": 1,
+          "unit": "份"
+        }
+      ]
+    }
+  ]
+}
+
+規則：
+- 請合理估計每道食物的熱量，寧可高估不要低估
+- 飲料含糖量要計算進去
+- 如有多個餐次請分開列出
+- 沒有明確說早中晚的，根據常識判斷（例如 oat latte 通常是早餐）
+- 食物名稱統一用繁體中文`
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const raw = message.content.find(b => b.type === 'text')?.text || '{}'
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const parsed = JSON.parse(cleaned)
+    res.json(parsed)
+  } catch (err) {
+    console.error('parse-diet error:', err)
+    res.status(500).json({ error: '解析失敗，請重試' })
+  }
+})
+
+// AI 智能解析運動
+app.post('/api/parse-exercise', async (req, res) => {
+  const { text } = req.body
+  if (!text) return res.status(400).json({ error: '請提供運動描述' })
+
+  const prompt = `你是一位專業健身教練。請解析以下運動/活動描述，回傳結構化 JSON 資料。
+
+運動描述：
+"""
+${text}
+"""
+
+請回傳以下 JSON 格式（只回傳 JSON，不要加任何說明或 markdown）：
+{
+  "exercises": [
+    {
+      "type": "運動名稱（繁體中文，例如：步行、跑步、騎自行車等）",
+      "duration": 持續時間分鐘整數,
+      "intensity": "low 或 medium 或 high",
+      "caloriesBurned": 消耗熱量整數,
+      "notes": "備註（可空字串）"
+    }
+  ]
+}
+
+規則：
+- Apple Watch 的 Move 卡路里 = 主動消耗，可直接使用
+- Exercise minutes 就是運動分鐘數
+- 步數 10000步 ≈ 40分鐘健走 ≈ 300大卡
+- 如果有明確的卡路里數字，優先使用那個數字
+- 沒有明確運動類型時，根據數據推測（有步數就算健走）`
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const raw = message.content.find(b => b.type === 'text')?.text || '{}'
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    const parsed = JSON.parse(cleaned)
+    res.json(parsed)
+  } catch (err) {
+    console.error('parse-exercise error:', err)
+    res.status(500).json({ error: '解析失敗，請重試' })
+  }
+})
+
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`)

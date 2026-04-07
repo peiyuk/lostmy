@@ -8,6 +8,7 @@ export interface UserProfile {
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active'
   dailyCalorieGoal: number
   startDate: string
+  targetDate?: string
 }
 
 export interface WeightEntry {

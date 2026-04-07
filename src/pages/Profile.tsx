@@ -170,6 +170,24 @@ export default function Profile() {
                 <input className="input-field" type="number" value={form.dailyCalorieGoal || ''} onChange={(e) => update('dailyCalorieGoal', e.target.value)} />
                 <p className="text-xs text-gray-400 mt-1">系統建議：{Math.round(calcTDEE({ ...profile, ...form, height: +(form.height || profile.height), age: +(form.age || profile.age), currentWeight: +(form.currentWeight || profile.currentWeight) } as UserProfile) - 500)} 大卡</p>
               </div>
+              <div>
+                <label className="label">🎯 目標達成日期（選填）</label>
+                <input
+                  className="input-field"
+                  type="date"
+                  value={form.targetDate || ''}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => update('targetDate', e.target.value)}
+                />
+                {form.targetDate && form.currentWeight && form.targetWeight && (
+                  <p className="text-xs text-primary-600 mt-1">
+                    需每天少攝取約 {Math.round(
+                      ((+(form.currentWeight || profile.currentWeight) - +(form.targetWeight || profile.targetWeight)) * 7700) /
+                      Math.max(1, Math.round((new Date(form.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                    )} 大卡
+                  </p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => setEditing(false)} className="btn-secondary">取消</button>
                 <button onClick={handleSave} className="btn-primary">儲存</button>

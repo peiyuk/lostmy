@@ -218,6 +218,34 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Target Date Countdown */}
+      {profile.targetDate && (
+        <div className="card mb-4 border-l-4 border-primary-400">
+          {(() => {
+            const daysLeft = Math.ceil((new Date(profile.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            const weightLeft = (profile.currentWeight - profile.targetWeight).toFixed(1)
+            const dailyDeficit = daysLeft > 0
+              ? Math.round((+weightLeft * 7700) / daysLeft)
+              : 0
+            return (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-400">🎯 目標日期 {profile.targetDate}</p>
+                  <p className="text-2xl font-bold text-primary-600 mt-0.5">還有 {daysLeft} 天</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    每日需減少 {dailyDeficit} 大卡才能達標
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-gray-700">{weightLeft}</p>
+                  <p className="text-xs text-gray-400">kg 待減</p>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <button

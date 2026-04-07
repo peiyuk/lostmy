@@ -2,11 +2,17 @@ import { useState } from 'react'
 import { useStore } from '../store'
 import { ExerciseEntry, ExerciseIntensity, INTENSITY_LABELS, COMMON_EXERCISES } from '../types'
 import { todayStr } from '../lib/calculations'
+import LoadingDots from '../components/LoadingDots'
 
 export default function Exercise() {
   const { exercises, addExercise, removeExercise } = useStore()
   const [showModal, setShowModal] = useState(false)
   const [viewDate, setViewDate] = useState(todayStr())
+  const [showAIInput, setShowAIInput] = useState(false)
+  const [aiText, setAiText] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<{ added: number } | null>(null)
+  const [aiError, setAiError] = useState('')
   const [form, setForm] = useState({
     type: '',
     customType: '',
@@ -55,6 +61,42 @@ export default function Exercise() {
   }
 
   const canSave = (useCustom ? form.customType : form.type) && form.duration
+
+  const handleAIParse = async () => {
+    if (!aiText.trim()) return
+    setAiLoading(true)
+    setAiError('')
+    setAiResult(null)
+    try {
+      const resp = await fetch('/api/parse-exercise', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: aiText }),
+      })
+      if (!resp.ok) throw new Error('伺服器錯誤')
+      const data = await resp.json()
+      if (data.error) throw new Error(data.error)
+      let added = 0
+      for (const ex of data.exercises || []) {
+        addExercise({
+          id: (Date.now() + added).toString(),
+          date: viewDate,
+          type: ex.type,
+          duration: ex.duration || 30,
+          intensity: ex.intensity || 'medium',
+          caloriesBurned: ex.caloriesBurned || 0,
+          notes: ex.notes || '',
+        })
+        added++
+      }
+      setAiResult({ added })
+      setAiText('')
+    } catch (e: unknown) {
+      setAiError(e instanceof Error ? e.message : '解析失敗，請重試')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   return (
     <div className="page-container">
@@ -137,11 +179,61 @@ export default function Exercise() {
         </div>
       )}
 
-      <button onClick={() => setShowModal(true)} className="btn-primary">
-        ＋ 新增運動
+      {/* AI Smart Input Button */}
+      <button
+        onClick={() => { setShowAIInput(true); setAiResult(null); setAiError('') }}
+        className="w-full mb-3 py-3 rounded-2xl border-2 border-dashed border-purple-300 bg-purple-50 text-purple-600 font-medium text-sm flex items-center justify-center gap-2"
+      >
+        <span>🤖</span>
+        <span>AI 智能輸入 — 貼上 Apple Watch 或運動描述</span>
       </button>
 
-      {/* Modal */}
+      <button onClick={() => setShowModal(true)} className="btn-primary">
+        ＋ 手動新增運動
+      </button>
+
+      {/* AI Input Modal */}
+      {showAIInput && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full max-w-[430px] mx-auto rounded-t-3xl max-h-[85vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-3xl">
+              <h3 className="font-bold text-gray-800">🤖 AI 智能輸入運動</h3>
+              <button onClick={() => setShowAIInput(false)} className="text-gray-400 text-2xl leading-none">×</button>
+            </div>
+            <div className="px-5 py-4 pb-8 space-y-4">
+              <p className="text-sm text-gray-500">貼上 Apple Watch 數據或運動描述，AI 自動解析</p>
+              <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-400 space-y-1">
+                <p>範例：</p>
+                <p>Move: 347/300 cal · Exercise: 44/30 min · Stand: 12/8 hrs</p>
+                <p>步數：10,474步 · 距離：4.21 mi</p>
+                <p>或：跑步 30 分鐘，游泳 45 分鐘</p>
+              </div>
+              <textarea
+                className="input-field h-36 resize-none"
+                placeholder="貼上你的運動數據..."
+                value={aiText}
+                onChange={(e) => setAiText(e.target.value)}
+              />
+              {aiError && <p className="text-red-500 text-sm bg-red-50 rounded-xl px-3 py-2">{aiError}</p>}
+              {aiResult && (
+                <div className="bg-green-50 rounded-xl px-4 py-3">
+                  <p className="text-green-700 font-semibold">✅ 成功新增 {aiResult.added} 筆運動紀錄！</p>
+                </div>
+              )}
+              <button
+                onClick={handleAIParse}
+                disabled={aiLoading || !aiText.trim()}
+                className={`btn-primary flex items-center justify-center gap-2 ${aiLoading || !aiText.trim() ? 'opacity-40' : ''}`}
+              >
+                {aiLoading ? <><LoadingDots color="bg-white" /><span>解析中...</span></> : '🤖 AI 自動解析並填入'}
+              </button>
+              {aiResult && <button onClick={() => setShowAIInput(false)} className="btn-secondary">關閉</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Add Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
           <div className="bg-white w-full max-w-[430px] mx-auto rounded-t-3xl max-h-[90vh] overflow-y-auto">
