@@ -153,8 +153,7 @@ app.post('/api/analyze', async (req, res) => {
 
     const stream = anthropic.messages.stream({
       model: 'claude-opus-4-6',
-      max_tokens: 1024,
-      thinking: { type: 'adaptive' },
+      max_tokens: 4096,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -167,8 +166,11 @@ app.post('/api/analyze', async (req, res) => {
     res.write('data: [DONE]\n\n')
     res.end()
   } catch (err) {
-    console.error('Claude API error:', err)
-    res.write(`data: ${JSON.stringify({ error: '分析服務暫時無法使用，請稍後再試。' })}\n\n`)
+    console.error('Claude API error:', err?.message || err)
+    const msg = err?.message?.includes('credit') ? '帳號餘額不足，請至 console.anthropic.com 儲值。'
+      : err?.message?.includes('API key') ? 'API 金鑰無效，請重新確認 .env 設定。'
+      : `錯誤：${err?.message || '請稍後再試'}`
+    res.write(`data: ${JSON.stringify({ error: msg })}\n\n`)
     res.write('data: [DONE]\n\n')
     res.end()
   }
